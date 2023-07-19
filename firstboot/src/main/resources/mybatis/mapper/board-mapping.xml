@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="board.spring.mybatis.BoardDAO">
+
+<!-- 글 추가하기 -->
+<insert id="insertBoard" parameterType="boarddto">
+	insert into board(title, contents, writer, pw, viewcount, writingtime) 
+	values(#{title}, #{contents}, #{writer}, #{pw}, 0, now())
+</insert>
+
+<!-- 전체 게시물 갯수 가져오기 -->
+<select id="getTotalBoard" resultType="int">
+	select count(*) from board
+</select> 
+
+<!-- 페이징처리 조회 -->
+<select id="boardPagingList" resultType="boarddto" parameterType="java.util.ArrayList">
+	select * from board order by writingtime desc limit
+	<foreach collection="list" item="num" separator=",">
+		#{num}
+	</foreach>
+</select>
+ 
+ <!-- 선택된 게시물 조회수 1 증가 -->
+<update id="updateViewcnt" parameterType="int">
+	update board set viewcount = viewcount +1 where seq=#{seq}
+</update>
+
+ <!-- 선택된 게시물 조회 -->
+<select id="getDetail" resultType="boarddto" parameterType="int">
+	select * from board where seq=#{seq}
+</select>
+
+<!-- 선택된 게시물 삭제 -->
+<delete id="deleteBoard" parameterType="int">
+	delete from board where seq=#{seq}
+</delete>
+
+<!-- 게시물 수정 -->
+<update id="updateBoard" parameterType="boarddto">
+	update board set title=#{title}, contents=#{contents}, writingtime=now() where seq=#{seq}
+</update>
+
+<!-- 검색 결과 조회 -->
+<select id="searchList" resultType="boarddto" parameterType="hashmap">
+	select * from board where
+	<choose>
+		<when test="colname == null">
+			title like #{colvalue} or contents like #{colvalue} or writer like #{colvalue} 
+		</when>
+		<otherwise>
+			${colname} like #{colvalue}
+		</otherwise>
+	</choose>
+	order by writingtime desc
+</select>
+
+<!-- 검색 결과로 페이징처리 -->
+<select id="getSearchBoard" resultType="int" parameterType="hashmap">
+	select count(*) from board where
+	<choose>
+		<when test="colname == null">
+			title like #{colvalue} or contents like #{colvalue} or writer like #{colvalue} 
+		</when>
+		<otherwise>
+			${colname} like #{colvalue}
+		</otherwise>
+	</choose>
+</select>
+
+<!-- 테이블 조인 : 게시글n번 작성자의 정보 조회하기 -->
+<!-- member.memberid 이런식으로 쓰기위한 설정  -->
+<resultMap type="board.spring.mybatis.BoardMemberDTO" id="boardwritermap">
+	<id property="seq" column="seq"/>
+	<result property="title" column="title"/>
+	<result property="contents" column="contents"/>
+	<result property="viewcount" column="viewcount"/>
+	<result property="writingtime" column="writingtime"/>
+	<result property="pw" column="b_pw"/><!-- 두개의 table에 모두 존재하는 pw를 가져오는방법 : alias를 붙여서 이름을 지정해준다. -->
+	<association property="member" resultMap="memberMap"/>	<!-- 1:1인 경우 -->
+	<!-- <collection property="member" resultMap="memberMap"/> - 1:다 인 경우엔 이렇게 써야함 -->
+</resultMap>
+<resultMap type="board.spring.mybatis.MemberDTO" id="memberMap">
+	<id property="memberid" column="memberid"/>
+	<result property="name" column="name"/>
+	<result property="phone" column="phone"/>
+	<result property="email" column="email"/>
+	<result property="regtime" column="regtime"/>
+	<result property="pw" column="m_pw"/><!-- 두개의 table에 모두 존재하는 pw를 가져오는방법 : alias를 붙여서 이름을 지정해준다. -->
+</resultMap>
+
+<select id="boardWriterInform" parameterType="int" resultMap="boardwritermap" >
+	select seq, title, contents, memberid, name, email, phone, regtime, b.pw as b_pw, m.pw as m_pw
+	from board b inner join c_member m
+	on  b.writer = m.memberid
+	where seq=#{seq}
+</select>
+<!-- public BoardMemberDTO boardWriterInform(int seq) -->
+
+</mapper>
+
